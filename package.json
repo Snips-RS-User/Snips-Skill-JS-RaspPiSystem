@@ -1,0 +1,13 @@
+{
+    "name": "snips_RaspPiSystem",
+    "description": "shutdon or restart the raspberry Pi",
+    "version": "0.0.1",
+    "main": "action-RaspPiSystem.js",
+    "author": "Snips-RS-User",
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/Snips-RS-User/Snips-Skill-JS_RaspPiSystem"
+    }
+    "dependencies": {
+    }
+}
