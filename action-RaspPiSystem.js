@@ -3,7 +3,7 @@
 /**
  * Documentation
  * @requires mqtt   Need to install mqtt library ">$ npm install mqtt --save"
- * @requires child_process   Need to execute "shutdown" system command
+ * @requires child_process   Need to execute the system commands
  * @var announceTimer   timer to announce le time before to execute "shutdown" system command
  * @var shutdownTimer   timer to execute "shutdown" system command
  * @var systemStatus    status of the system (default="on")
@@ -11,6 +11,7 @@
 
 var mqtt = require('mqtt');
 var exec = require('child_process').exec;
+var spawn = require('child_process').spawn;
 var announceTimer;
 var shutdownTimer;
 var systemStatus="on";
@@ -32,6 +33,7 @@ const INTENT_RESTART = "Snips-RS-User:askRestart";
 const INTENT_CANCEL = "Snips-RS-User:askCancellation";
 const INTENT_YES = "Snips-RS-User:answerYes";
 const INTENT_NO = "Snips-RS-User:answerNo";
+const INTENT_TEMPERATURE = "Snips-RS-User:askSystemTemperature";
 
 
 /**
@@ -228,5 +230,16 @@ var onIntentDetected = function (payload) {
             console.log("[Snips Log] TTS: sentence=" + ttsText);
             client.publish('hermes/dialogueManager/endSession', sentence);
         }
+    }
+    /** ACTION if INTENT_TEMPERATURE */
+    if (payload.intent.intentName == INTENT_TEMPERATURE) {
+        temperature = spawn('cat', ['/sys/class/thermal/thermal_zone0/temp']);
+        temperature.stdout.on('data', function (data) {
+            var ttsText = "La température du système est de " + Math.round(data / 1000) + " degrés Celcius";
+            /** LOG description of the sended sentence */
+            console.log("[Snips Log] TTS: sentence=" + ttsText);
+            var sentence = JSON.stringify({ sessionId: payload.sessionId, text: ttsText });
+            client.publish('hermes/dialogueManager/endSession', sentence);
+        });
     }
 }
