@@ -28,12 +28,14 @@ const raspi = {
     hostname: "localhost",
     port: 1883
 }
-const INTENT_SHUTDOWN = "Snips-RS-User:askShutdown";
-const INTENT_RESTART = "Snips-RS-User:askRestart";
-const INTENT_CANCEL = "Snips-RS-User:askCancellation";
+const INTENT_SHUTDOWN_SYSTEM = "Snips-RS-User:askShutdownSystem";
+const INTENT_RESTART_SYSTEM = "Snips-RS-User:askRestartSystem";
+const INTENT_CANCEL_SHUTDOWN_SYSTEM = "Snips-RS-User:askCancelShutdownSystem";
 const INTENT_YES = "Snips-RS-User:answerYes";
 const INTENT_NO = "Snips-RS-User:answerNo";
-const INTENT_TEMPERATURE = "Snips-RS-User:askSystemTemperature";
+const INTENT_SYSTEM_TEMPERATURE = "Snips-RS-User:askSystemTemperature";
+const INTENT_START_WIFI = "Snips-RS-User:askStartWifi";
+const INTENT_STOP_WIFI = "Snips-RS-User:askStopWifi";
 
 
 /**
@@ -104,8 +106,8 @@ var onIntentDetected = function (payload) {
     /** LOG description of the detected intent */
     console.log("[Snips Log] Intent detected: sessionId=" + payload.sessionId + " - siteId=" + payload.siteId);
     console.log("[Snips Log] Intent detected: IntentName=" + payload.intent.intentName + " - Slots=" + JSON.stringify(payload.slots) + " - confidenceScore=" + payload.intent.confidenceScore);
-    /** ACTION if INTENT_SHUTDOWN */
-    if (payload.intent.intentName == INTENT_SHUTDOWN) {
+    /** ACTION if INTENT_SHUTDOWN_SYSTEM */
+    if (payload.intent.intentName == INTENT_SHUTDOWN_SYSTEM) {
         if (systemStatus == "on") {
             var ttsText = "Voulez vous vraiment arrêter le système ?";
             var customParam = JSON.stringify({ sessionId: payload.sessionId, contextFunction: "ShutdownSystemDemand" });
@@ -127,8 +129,8 @@ var onIntentDetected = function (payload) {
             client.publish('hermes/dialogueManager/endSession', sentence);
         }
     }
-    /** ACTION if INTENT_RESTART */
-    if (payload.intent.intentName == INTENT_RESTART) {
+    /** ACTION if INTENT_RESTART_SYSTEM */
+    if (payload.intent.intentName == INTENT_RESTART_SYSTEM) {
         if (systemStatus == "on") {
             var ttsText = "Voulez vous vraiment redémarrer le système ?";
             var customParam = JSON.stringify({ sessionId: payload.sessionId, contextFunction: "RestartSystemDemand" });
@@ -150,8 +152,8 @@ var onIntentDetected = function (payload) {
             client.publish('hermes/dialogueManager/endSession', sentence);
         }
     }
-    /** ACTION if INTENT_CANCEL */
-    if (payload.intent.intentName == INTENT_CANCEL) {
+    /** ACTION if INTENT_CANCEL_SHUTDOWN_SYSTEM */
+    if (payload.intent.intentName == INTENT_CANCEL_SHUTDOWN_SYSTEM) {
         if (systemStatus == "on") {
             var ttsText = "Le système n'est pas en cours d'arrêt ou de redémarrage.";
             /** LOG description of the sended sentence */
@@ -172,10 +174,22 @@ var onIntentDetected = function (payload) {
             client.publish('hermes/dialogueManager/continueSession', sentence);
         }
     }
+    /** ACTION if INTENT_SYSTEM_TEMPERATURE */
+    if (payload.intent.intentName == INTENT_SYSTEM_TEMPERATURE) {
+        temperature = spawn('cat', ['/sys/class/thermal/thermal_zone0/temp']);
+        temperature.stdout.on('data', function (data) {
+            var ttsText = "La température du système est de " + Math.round(data / 1000) + " degrés Celcius";
+            /** LOG description of the sended sentence */
+            console.log("[Snips Log] TTS: sentence=" + ttsText);
+            var sentence = JSON.stringify({ sessionId: payload.sessionId, text: ttsText });
+            client.publish('hermes/dialogueManager/endSession', sentence);
+        });
+    }
+    /** ACTION if INTENT_SYSTEM_TEMPERATURE */
     /** ACTION if INTENT_YES */
     if (payload.intent.intentName == INTENT_YES) {
         var customParam=JSON.parse(payload.customData);
-        /** ACTION if INTENT_SHUTDOWN CONFIRMED */
+        /** ACTION if INTENT_SHUTDOWN_SYSTEM CONFIRMED */
         if (customParam.contextFunction == "ShutdownSystemDemand") {
             var ttsText = "Le système va s'éteindre dans une minute.";
             var sentence = JSON.stringify({ sessionId: payload.sessionId, text: ttsText });
@@ -188,7 +202,7 @@ var onIntentDetected = function (payload) {
             execute('sudo shutdown +1 "System stopping..."');
             systemStatus = "stopping";
         }
-        /** ACTION if INTENT_RESTART CONFIRMED */
+        /** ACTION if INTENT_RESTART_SYSTEM CONFIRMED */
         if (customParam.contextFunction == "RestartSystemDemand") {
             var ttsText = "Le système va redémarrer dans une minute.";
             var sentence = JSON.stringify({ sessionId: payload.sessionId, text: ttsText });
@@ -201,7 +215,7 @@ var onIntentDetected = function (payload) {
             execute('sudo shutdown -r +1 "System restarting..."');
             systemStatus = "restarting";
         }
-        /** ACTION if INTENT_CANCEL CONFIRMED */
+        /** ACTION if INTENT_CANCEL_SHUTDOWN_SYSTEM CONFIRMED */
         if (customParam.contextFunction == "CancelSystemDemand") {
             if (systemStatus == "restarting") {
                 var ttsText = "Le redémarrage du système est annulé.";
@@ -230,16 +244,5 @@ var onIntentDetected = function (payload) {
             console.log("[Snips Log] TTS: sentence=" + ttsText);
             client.publish('hermes/dialogueManager/endSession', sentence);
         }
-    }
-    /** ACTION if INTENT_TEMPERATURE */
-    if (payload.intent.intentName == INTENT_TEMPERATURE) {
-        temperature = spawn('cat', ['/sys/class/thermal/thermal_zone0/temp']);
-        temperature.stdout.on('data', function (data) {
-            var ttsText = "La température du système est de " + Math.round(data / 1000) + " degrés Celcius";
-            /** LOG description of the sended sentence */
-            console.log("[Snips Log] TTS: sentence=" + ttsText);
-            var sentence = JSON.stringify({ sessionId: payload.sessionId, text: ttsText });
-            client.publish('hermes/dialogueManager/endSession', sentence);
-        });
     }
 }
