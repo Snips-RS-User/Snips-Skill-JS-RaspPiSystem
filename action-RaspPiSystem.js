@@ -1,10 +1,19 @@
 #!/usr/bin/env node
+
 /**
  * Documentation
- * @requires mqtt   need to install mqtt library ">$ npm install mqtt --save"
+ * @requires mqtt   Need to install mqtt library ">$ npm install mqtt --save"
+ * @requires child_process   Need to execute "shutdown" system command
+ * @var announceTimer   timer to announce le time before to execute "shutdown" system command
+ * @var shutdownTimer   timer to execute "shutdown" system command
+ * @var systemStatus    status of the system (default="on")
  */
 
 var mqtt = require('mqtt');
+var exec = require('child_process').exec;
+var announceTimer;
+var shutdownTimer;
+var systemStatus="on";
 
 
 /**
@@ -23,6 +32,7 @@ const INTENT_RESTART = "Snips-RS-User:askRestart";
 const INTENT_CANCEL = "Snips-RS-User:askCancellation";
 const INTENT_YES = "Snips-RS-User:answerYes";
 const INTENT_NO = "Snips-RS-User:answerNo";
+
 
 /**
  * Documentation
@@ -51,6 +61,37 @@ client.on('message', function (topic, payload) {
 
 /**
  * Documentation
+ * @function execute    
+ * @param {*} command   
+ * @description Execute the shell "command" 
+ */
+
+var execute = function (command) {
+    exec(command, function (err, stdout, stderr) {
+        if (err) {
+            console.error(err);
+        } else {
+            console.log(stdout);
+        }
+    });
+}
+
+
+/**
+ * Documentation
+ * @function publishTTS
+ * @description Announce a message TTS with Snips
+ */
+var publishTTS = function (message) {
+    var sentence = JSON.stringify({ siteId: 'default', init: { type: 'notification', text: message }});
+    /** LOG description of the sended sentence */
+    console.log("[Snips Log] TTS: sentence=" + message);
+    client.publish('hermes/dialogueManager/startSession', sentence);
+}
+
+
+/**
+ * Documentation
  * @function onIntentDetected
  * @param {*} payload
  * @returns
@@ -63,23 +104,129 @@ var onIntentDetected = function (payload) {
     console.log("[Snips Log] Intent detected: IntentName=" + payload.intent.intentName + " - Slots=" + JSON.stringify(payload.slots) + " - confidenceScore=" + payload.intent.confidenceScore);
     /** ACTION if INTENT_SHUTDOWN */
     if (payload.intent.intentName == INTENT_SHUTDOWN) {
-
-        ttsText = defineTime();
+        if (systemStatus == "on") {
+            var ttsText = "Voulez vous vraiment arrêter le système ?";
+            var customParam = JSON.stringify({ sessionId: payload.sessionId, contextFunction: "ShutdownSystemDemand" });
+            var sentence = JSON.stringify({ sessionId: payload.sessionId, text: ttsText, intentFilter: [INTENT_YES, INTENT_NO], customData: customParam });
+            /** LOG description of the sended sentence */
+            console.log("[Snips Log] TTS: sentence=" + ttsText);
+            client.publish('hermes/dialogueManager/continueSession', sentence);
+        } else {
+            if (systemStatus == "restarting") {
+                var ttsText = "Le système est déjà en cours de redémarrage.";
+            } else {
+                if (systemStatus == "stopping") {
+                    var ttsText = "Le système est déjà en cours d'arrêt.";
+                } else {
+                    var ttsText = "Le système est dans une situation inconnue.";
+                }
+            }
+            var sentence = JSON.stringify({ sessionId: payload.sessionId, text: ttsText });
+            client.publish('hermes/dialogueManager/endSession', sentence);
+        }
     }
     /** ACTION if INTENT_RESTART */
     if (payload.intent.intentName == INTENT_RESTART) {
-
+        if (systemStatus == "on") {
+            var ttsText = "Voulez vous vraiment redémarrer le système ?";
+            var customParam = JSON.stringify({ sessionId: payload.sessionId, contextFunction: "RestartSystemDemand" });
+            var sentence = JSON.stringify({ sessionId: payload.sessionId, text: ttsText, intentFilter: [INTENT_YES, INTENT_NO], customData: customParam });
+            /** LOG description of the sended sentence */
+            console.log("[Snips Log] TTS: sentence=" + ttsText);
+            client.publish('hermes/dialogueManager/continueSession', sentence);
+        } else {
+            if (systemStatus == "restarting") {
+                var ttsText = "Le système est déjà en cours de redémarrage.";
+            } else {
+                if (systemStatus == "stopping") {
+                    var ttsText = "Le système est déjà en cours d'arrêt.";
+                } else {
+                    var ttsText = "Le système est dans une situation inconnue.";
+                }
+            }
+            var sentence = JSON.stringify({ sessionId: payload.sessionId, text: ttsText });
+            client.publish('hermes/dialogueManager/endSession', sentence);
+        }
     }
-    /** ACTION if INTENT_INTENT_CANCEL */
+    /** ACTION if INTENT_CANCEL */
     if (payload.intent.intentName == INTENT_CANCEL) {
-
+        if (systemStatus == "on") {
+            var ttsText = "Le système n'est pas en cours d'arrêt ou de redémarrage.";
+            /** LOG description of the sended sentence */
+            console.log("[Snips Log] TTS: sentence=" + ttsText);
+            var sentence = JSON.stringify({ sessionId: payload.sessionId, text: ttsText });
+            client.publish('hermes/dialogueManager/endSession', sentence);
+        } else {
+            if (systemStatus == "restarting") {
+                var ttsText = "Voulez vous vraiment annuler le redémarrage du système ?";
+            }
+            if (systemStatus == "stopping") {
+                var ttsText = "Voulez vous vraiment annuler l'arrêt du système ?";
+            }
+            var customParam = JSON.stringify({ sessionId: payload.sessionId, contextFunction: "CancelSystemDemand" });
+            var sentence = JSON.stringify({ sessionId: payload.sessionId, text: ttsText, intentFilter: [INTENT_YES, INTENT_NO], customData: customParam });
+            /** LOG description of the sended sentence */
+            console.log("[Snips Log] TTS: sentence=" + ttsText);
+            client.publish('hermes/dialogueManager/continueSession', sentence);
+        }
     }
-    
-    // /** ACTION send the sentence and close the session */
-    // if (detectedIntent) {
-    //     var sentence = JSON.stringify({ sessionId: payload.sessionId, text: ttsText });
-    //     /** LOG description of the sended sentence */
-    //     console.log("[Snips Log] TTS: sentence=" + ttsText);
-    //     client.publish('hermes/dialogueManager/endSession', sentence);
-    // }
+    /** ACTION if INTENT_YES */
+    if (payload.intent.intentName == INTENT_YES) {
+        var customParam=JSON.parse(payload.customData);
+        /** ACTION if INTENT_SHUTDOWN CONFIRMED */
+        if (customParam.contextFunction == "ShutdownSystemDemand") {
+            var ttsText = "Le système va s'éteindre dans une minute.";
+            var sentence = JSON.stringify({ sessionId: payload.sessionId, text: ttsText });
+            /** LOG description of the sended sentence */
+            console.log("[Snips Log] TTS: sentence=" + ttsText);
+            client.publish('hermes/dialogueManager/endSession', sentence);
+            // stop the system after many announces
+            announceTimer = setTimeout(function () {publishTTS("arrêt du système dans 30 secondes.");},30000);
+            shutdownTimer = setTimeout(function () {publishTTS("arrêt du système imminent.");},50000);
+            execute('sudo shutdown +1 "System stopping..."');
+            systemStatus = "stopping";
+        }
+        /** ACTION if INTENT_RESTART CONFIRMED */
+        if (customParam.contextFunction == "RestartSystemDemand") {
+            var ttsText = "Le système va redémarrer dans une minute.";
+            var sentence = JSON.stringify({ sessionId: payload.sessionId, text: ttsText });
+            /** LOG description of the sended sentence */
+            console.log("[Snips Log] TTS: sentence=" + ttsText);
+            client.publish('hermes/dialogueManager/endSession', sentence);
+            // restart the system after many announces
+            announceTimer = setTimeout(function () {publishTTS("redémarrage du système dans 30 secondes.");},30000);
+            shutdownTimer = setTimeout(function () {publishTTS("redémarrage du système imminent.");},50000);
+            execute('sudo shutdown -r +1 "System restarting..."');
+            systemStatus = "restarting";
+        }
+        /** ACTION if INTENT_CANCEL CONFIRMED */
+        if (customParam.contextFunction == "CancelSystemDemand") {
+            if (systemStatus == "restarting") {
+                var ttsText = "Le redémarrage du système est annulé.";
+            }
+            if (systemStatus == "stopping") {
+                var ttsText = "L'arrêt du système est annulé ?";
+            }
+            var sentence = JSON.stringify({ sessionId: payload.sessionId, text: ttsText });
+            /** LOG description of the sended sentence */
+            console.log("[Snips Log] TTS: sentence=" + ttsText);
+            client.publish('hermes/dialogueManager/endSession', sentence);
+            // restart the system after many announces
+            clearTimeout(announceTimer);
+            clearTimeout(shutdownTimer);
+            execute('sudo shutdown -c "Canceling..."');
+            systemStatus = "on";
+        }
+    }
+     /** ACTION if INTENT_NO */
+    if (payload.intent.intentName == INTENT_NO) {
+        var customParam=JSON.parse(payload.customData);
+        if (customParam.contextFunction == "RestartSystemDemand" || customParam.contextFunction == "ShutdownSystemDemand" || customParam.contextFunction == "CancelSystemDemand" ) {
+            var ttsText = "Très bien.";
+            var sentence = JSON.stringify({ sessionId: payload.sessionId, text: ttsText });
+            /** LOG description of the sended sentence */
+            console.log("[Snips Log] TTS: sentence=" + ttsText);
+            client.publish('hermes/dialogueManager/endSession', sentence);
+        }
+    }
 }
