@@ -1,7 +1,7 @@
 {
     "name": "snips_RaspPiSystem",
-    "description": "shutdon or restart the raspberry Pi, and others functions",
-    "version": "1.0.0",
+    "description": "shutdown or restart the raspberry Pi, and others functions",
+    "version": "1.0.1",
     "main": "action-RaspPiSystem.js",
     "author": "Snips-RS-User",
     "repository": {
