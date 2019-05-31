@@ -185,7 +185,24 @@ var onIntentDetected = function (payload) {
             client.publish('hermes/dialogueManager/endSession', sentence);
         });
     }
-    /** ACTION if INTENT_SYSTEM_TEMPERATURE */
+    /** ACTION if INTENT_START_WIFI */
+    if (payload.intent.intentName == INTENT_START_WIFI) {
+        var ttsText = "J'active le wifi.";
+        /** LOG description of the sended sentence */
+        console.log("[Snips Log] TTS: sentence=" + ttsText);
+        var sentence = JSON.stringify({ sessionId: payload.sessionId, text: ttsText });
+        client.publish('hermes/dialogueManager/endSession', sentence);
+        execute('sudo rfkill unblock all');
+    }
+     /** ACTION if INTENT_STOP_WIFI */
+     if (payload.intent.intentName == INTENT_STOP_WIFI) {
+        var ttsText = "Je désactive le wifi.";
+        /** LOG description of the sended sentence */
+        console.log("[Snips Log] TTS: sentence=" + ttsText);
+        var sentence = JSON.stringify({ sessionId: payload.sessionId, text: ttsText });
+        client.publish('hermes/dialogueManager/endSession', sentence);
+        execute('sudo rfkill block all');
+    }   
     /** ACTION if INTENT_YES */
     if (payload.intent.intentName == INTENT_YES) {
         var customParam=JSON.parse(payload.customData);
