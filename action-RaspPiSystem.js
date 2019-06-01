@@ -262,4 +262,4 @@ var onIntentDetected = function (payload) {
             client.publish('hermes/dialogueManager/endSession', sentence);
         }
     }
-}
+};
