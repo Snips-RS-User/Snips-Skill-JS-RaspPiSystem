@@ -192,7 +192,7 @@ var onIntentDetected = function (payload) {
         console.log("[Snips Log] TTS: sentence=" + ttsText);
         var sentence = JSON.stringify({ sessionId: payload.sessionId, text: ttsText });
         client.publish('hermes/dialogueManager/endSession', sentence);
-        execute('sudo rfkill unblock all');
+        execute('rfkill unblock all');
     }
      /** ACTION if INTENT_STOP_WIFI */
      if (payload.intent.intentName == INTENT_STOP_WIFI) {
@@ -201,7 +201,7 @@ var onIntentDetected = function (payload) {
         console.log("[Snips Log] TTS: sentence=" + ttsText);
         var sentence = JSON.stringify({ sessionId: payload.sessionId, text: ttsText });
         client.publish('hermes/dialogueManager/endSession', sentence);
-        execute('sudo rfkill block all');
+        execute('rfkill block all');
     }   
     /** ACTION if INTENT_YES */
     if (payload.intent.intentName == INTENT_YES) {
@@ -216,7 +216,7 @@ var onIntentDetected = function (payload) {
             // stop the system after many announces
             announceTimer = setTimeout(function () {publishTTS("arrêt du système dans 30 secondes.");},30000);
             shutdownTimer = setTimeout(function () {publishTTS("arrêt du système imminent.");},50000);
-            execute('sudo shutdown +1 "System stopping..."');
+            execute('shutdown +1 "System stopping..."');
             systemStatus = "stopping";
         }
         /** ACTION if INTENT_RESTART_SYSTEM CONFIRMED */
@@ -229,7 +229,7 @@ var onIntentDetected = function (payload) {
             // restart the system after many announces
             announceTimer = setTimeout(function () {publishTTS("redémarrage du système dans 30 secondes.");},30000);
             shutdownTimer = setTimeout(function () {publishTTS("redémarrage du système imminent.");},50000);
-            execute('sudo shutdown -r +1 "System restarting..."');
+            execute('shutdown -r +1 "System restarting..."');
             systemStatus = "restarting";
         }
         /** ACTION if INTENT_CANCEL_SHUTDOWN_SYSTEM CONFIRMED */
@@ -247,7 +247,7 @@ var onIntentDetected = function (payload) {
             // restart the system after many announces
             clearTimeout(announceTimer);
             clearTimeout(shutdownTimer);
-            execute('sudo shutdown -c "Canceling..."');
+            execute('shutdown -c "Canceling..."');
             systemStatus = "on";
         }
     }
